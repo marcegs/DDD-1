@@ -150,5 +150,5 @@ classDiagram
 
 - [Eventos](https://miro.com/app/board/uXjVIkkp3k4=/?moveToWidget=3458764645799234646&cot=14).
 - [Eventos](./eventos.jpeg)
-- [Diagrama](./diagrama.pdf)
+- [Diagrama](./diagrama.drawio.pdf)
 ---
