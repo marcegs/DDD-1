@@ -1,16 +1,4 @@
-# 📚 Trabalho — Design Tático no DDD (Template para qualquer domínio)
-
-> **Como usar:** copie este arquivo e substitua os **[colchetes]** com informações do **seu domínio** (e-commerce, marketplace, logística, educação, fintech, games, etc.).
-> O objetivo é praticar Entidades, Value Objects, Agregados/AR, Repositórios e Eventos de Domínio — com foco em **invariantes** e **domínio rico**.
-
----
-
-## 🚀 Quick start (5 passos)
-1. Escolha um **domínio** que você conheça (ex.: **[Seu Domínio]**).
-2. Liste 3–7 **invariantes** que devem estar corretas no **commit**.
-3. Escolha 1–2 **Agregados principais** (comece por **[Agregado Principal]**).
-4. Desenhe a **máquina de estados** e os **eventos** que surgem das transições.
-5. Defina o **Repositório** da AR e como lidará com **consistência** entre agregados.
+# 📚 Trabalho — Design Tático no DDD
 
 ---
 
@@ -23,7 +11,6 @@
 ---
 
 ## 🧩 2) Entidades vs Value Objects
-Preencha a tabela justificando cada tipo (identidade vs. imutabilidade).
 
 | Elemento | Tipo (Entidade/VO) | Por quê? (identidade/imutável) |
 |-------------------|-------------------------------|-------------------------------------------------------------------------------|
@@ -34,43 +21,39 @@ Preencha a tabela justificando cada tipo (identidade vs. imutabilidade).
 | **Wallet**        | Value Object                  | Guarda e valida o endereço da wallet dos usuários.                            |
 | **CPF**           | Value Object                  | Guarda e valida o CPF dos usuários.                                           |
 
-
-> Dica: Promova tipos semânticos: `Email`, `CPF/CNPJ`, `Money`, `IntervaloDeTempo`, `Endereco`, `Percentual`, `Quantidade`, etc. **VOs devem ser imutáveis** e com **igualdade por valor**.
-
 ---
 
 ## 🏗️ 3) Agregados e Aggregate Root (AR)
-**Agregado Principal:** **[Agregado Principal]**  
-**Conteúdo interno do agregado (apenas o necessário para consistência local):**  
-- **[Entidade interna/VO]**
-- **[Entidade interna/VO]**
+**Agregado Principal:** **Campanha**  
+**Conteúdo interno do agregado:**  
+- **Investidor (Entidade)**
+- **Empreendedor (Entidade)**
 
 **Referências a outros agregados (por ID):**  
-- **[OutroAgregadoId]** (não conter dentro do agregado)
-- **[OutroAgregadoId]**
+- **ConsumidorId**
 
 **Boundary — Por que cada item está dentro/fora?**  
-- **Dentro porque [precisa de consistência transacional por causa da invariante X]**  
-- **Fora porque [pode esperar/eventual; pertence a outro BC; só precisa de referência por ID]**
+- **Dentro porque é necessário um consumidor para a transação e alguns dos dados usando consistencia eventual**
 
 ---
 
 ## 🧭 4) Invariantes e Máquina de Estados
-Liste invariantes (devem ser verdadeiras ao final de cada transação).
+Liste invariantes.
 
-**Invariantes (exemplos):**
-- **[Não aceitar pagamento acima do limite de crédito]**
-- **[Não permitir slot de horário sobreposto para o mesmo recurso]**
-- **[Não permitir alteração após estado X]**
-- **[Preço Total = soma dos itens] (se aplicável)**
+**Invariantes:**
+- **Todas as alterações são irreversiveis**
+- **O usuário precisa ter saldo na carteira para realizar transações**
+- **O usuário precisa de uma Wallet conectada**
 
-**Estados e transições da AR [Nome da AR]:**
+**Estados e transições da AR Campanha:**
 ```
-[EstadoInicial] -> [Estado1] -> [Estado2] -> [EstadoFinal]
+[Criar Campanha] -> [Campanha criada]
 Regras:
-- [Transição A] permitida se [condições/invariantes]
-- [Transição B] bloqueada se [condições]
-- [Transição C] exige [política/serviço]
+- Usuário ativo
+
+[Editar Campanha] -> [Campanha editada]
+Regras:
+- Usuário ativo
 ```
 
 ---
@@ -78,13 +61,33 @@ Regras:
 ## 🗃️ 5) Repositório do Agregado (interface)
 > Repositório trabalha **apenas com a AR**, sem expor entidades internas do agregado. Consultas analíticas ficam fora (read models).
 
-**Linguagem livre** (ex.: C#, Java, Kotlin, TS). Exemplo (C# assíncrono, adapte nomes):
-```csharp
-public interface I[Agregado]Repository
-{
-    Task<[Agregado]?> ObterPorIdAsync(Guid id, CancellationToken ct = default);
-    Task AdicionarAsync([Agregado] entidade, CancellationToken ct = default);
-    Task SalvarAsync([Agregado] entidade, CancellationToken ct = default);
+**Linguagem livre**:
+```kotlin
+data class Campaign(
+	val alias: String,
+	val createdAt: String,
+	val description: String,
+	val hash: String,
+	val id: String,
+	val title: String,
+	val updatedAt: String,
+	val valor: Float,
+)
+
+data class Wallet(
+	val hash: String
+)
+
+interface ICampaignRepository {
+    fun create(campaign: Campaign)
+    fun delete(campaignIdOrAlias: String)
+    fun find(campaignIdOrAlias: String)
+    fun update(campaign: Campaign)
+    fun invest(amount: Float, campaignIdOrAlias: String, userWallet: Wallet)
+}
+
+interface ISaleRepository {
+    fun order(productIds: List<String>, userId: String)
 }
 ```
 
@@ -96,9 +99,9 @@ Defina **2–4 eventos** com **payload mínimo** e **momento de publicação** (
 
 | Evento | Quando ocorre | Payload mínimo | Interno/Integração | Observações |
 |---|---|---|---|---|
-| **[EventoXOcorrido]** | [ao confirmar/remarcar/etc.] | [ids, valores necessários] | [Interno/Integração] | [idempotência, consumidor] |
-| **[EventoYOcorrida]** | [...] | [...] | [...] | [...] |
-| **[EventoZOcorrida]** | [...] | [...] | [...] | [...] |
+| **[CampanhaCriada]** | [ao criar campanha] | [campanhaId, empreendedorId, titulo, descrição, valor] | [Interno] | [Empreendedor] |
+| **[CampanhaEditada]** | [ao editar campanha] | [campanhaId, titulo, descrição, valor] | [Interno] | [Empreendedor] |
+| **[CampanhaFinalizada]** | [ao finalizar campanha] | [campanhaId] | [Interno] | [Empreendedor] |
 
 ---
 
@@ -108,33 +111,36 @@ Defina **2–4 eventos** com **payload mínimo** e **momento de publicação** (
 **Exemplo de esqueleto Mermaid:**
 ```mermaid
 classDiagram
-  class AgregadoPrincipal {
-    +Guid Id
-    +Guid OutroAgregadoId
-    +VOImportante Valor
-    +Status Estado
-    +Operacao1(args)
-    +Operacao2(args)
+  class Campaign {
+    +String alias
+	+Guid campanhaId
+	+String createdAt
+	+String description
+	+Hash hash
+	+String title
+	+String updatedAt
+	+Float valor
+    +Editar(campanhaId, empreendedorId, titulo, descrição, valor)
+    +Finalizar(campanhaId)
   }
 
-  class VOImportante {
-    +Atributo1
-    +Atributo2
-    +OperacaoVO()
+  class Hash {
+    +String hash
   }
 
-  class OutroAgregado {
-    +Guid Id
+  class Sales {
+    +Guid campanhaId
+    +Guid userId
   }
 
-  AgregadoPrincipal --> OutroAgregado : por Id
-  AgregadoPrincipal --> VOImportante
+  Hash --> Campaign
+  Sales --> Campaign : por campanhaId
 ```
 
 ---
 
 ## ✅ Checklist de Aceitação
-- [ ] **VOs imutáveis** e com **igualdade por valor** (nada de “string de CPF/Email”).
+- [ ] **VOs imutáveis** e com **igualdade por valor**.
 - [ ] **Boundary do agregado** pequeno e com **invariantes claras**.
 - [ ] **Domínio rico**: operações do negócio como métodos (evitar `set` aberto).
 - [ ] **Repositório** focado na **AR** (sem `IQueryable`/detalhes de ORM no domínio).
@@ -142,5 +148,7 @@ classDiagram
 
 ## 📤 Entrega
 
-- **Inclua**: link/imagem do **diagrama** + todas as seções acima preenchidas.
+- [Eventos](https://miro.com/app/board/uXjVIkkp3k4=/?moveToWidget=3458764645799234646&cot=14).
+- [Eventos](./eventos.jpeg)
+- [Diagrama](./diagrama.pdf)
 ---
